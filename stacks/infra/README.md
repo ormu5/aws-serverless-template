@@ -7,8 +7,8 @@ be given to a `database.yml` per stack to separate concerns into separate cluste
 # Quick Start
 
 1. Manually add SSM Params
-   - `/<service>/<stage>/database-master-username`
-   - `/<service>/<stage>/database-name`
+   - `/<service>/<stage>/database-master-username` (Seeds creation of Secret)
+   - `/<service>/<stage>/database-name`  (Seeds creation of database)
 2. `npm install`
 3. Check/adjust HA settings at `serverless.yml:resources.Conditions`
 4. `sls deploy --stage <stage> --app <app>`

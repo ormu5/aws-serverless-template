@@ -16,9 +16,9 @@ incorporating this stack into existing AWS environments, as well as adjacent com
    - `/<service>/<stage>/event-hub-connection-string`
    - `/<service>/<stage>/event-hub-name`
    - `/<service>/<stage>/event-hub-consumer-group`
-   - `/<service>/<stage>/database-deployment-username`
-   - `/<service>/<stage>/database-runtime-username`
-   - `/<service>/<stage>/database-name`
+   - `/<service>/<stage>/database-deployment-username` (seeds creation of Secret)
+   - `/<service>/<stage>/database-runtime-username`  (seeds creation of Secret)
+   - `/<service>/<stage>/database-name`  (Seeds creation of database)
 2. `npm install`
 3. `sls deploy --stage <stage> --app <app>`
 4. `./db/scripts/init_aws_database.sh --service-name <> --resource-arn <> --master-secret-arn <> --stage <>`
@@ -114,10 +114,11 @@ Example log output from Lambda working two Azure Event Hub partitions
 # TODO
 
 - Event hub manager Lambda for workers; gist:
-  - A warning is currently generated/logged when message age exceeds a certain point.
-    This same warning could serve as a basis to send event to manager Lambda that then checks
-    to see how many Lambda instances are running (probably best based on checkpoint table). If
-    anything less than one Lambda per remote partition is running, the manager could spin up
-    another worker. If a single instance of a Lambda can keep up with all partitions, no warning is
-    is generated and the manager need not spin up more instances.
+
+  A warning is currently generated/logged when message age exceeds a certain point.
+  This same warning could serve as a basis to send event to manager Lambda that then checks
+  to see how many Lambda instances are running (probably best based on checkpoint table). If
+  anything less than one Lambda per remote partition is running, the manager could spin up
+  another worker. If a single instance of a Lambda can keep up with all partitions, no warning is
+  is generated and the manager need not spin up more instances.
 - Intelligent spin-down of workers (efficiency) during sparse event hub messages.
