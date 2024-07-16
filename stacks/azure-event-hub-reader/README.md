@@ -11,7 +11,8 @@ currently its Lambda only logs the events and does not persist them.
 # Quick Start
 
 See [Infrastructure](https://github.com/ormu5/aws-serverless-template?tab=readme-ov-file#infrastructure) for a note about
-incorporating this stack into existing AWS environments, as well as adjacent common stack setup instructions.
+incorporating this stack into existing AWS environments, as well as adjacent
+[common stack setup](https://github.com/ormu5/aws-serverless-template?tab=readme-ov-file#stack-use) instructions.
 
 1. Manually add SSM Params
    - `/<service>/<stage>/event-hub-connection-string`
