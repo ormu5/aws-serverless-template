@@ -9,17 +9,20 @@ currently its Lambda only logs the events and does not persist them.
 
 # Quick Start
 
-1. SSM Params
+See [Infrastructure](https://github.com/ormu5/aws-serverless-template?tab=readme-ov-file#infrastructure) for a note about
+incorporating this stack into existing AWS environments, as well as adjacent common stack setup instructions.
 
+1. Manually add SSM Params
    - `/<service>/<stage>/event-hub-connection-string`
    - `/<service>/<stage>/event-hub-name`
    - `/<service>/<stage>/event-hub-consumer-group`
    - `/<service>/<stage>/database-deployment-username`
    - `/<service>/<stage>/database-runtime-username`
    - `/<service>/<stage>/database-name`
-2. `sls deploy --stage <stage> --app <app>`
-3. `./db/scripts/init_aws_database.sh --service-name <> --resource-arn <> --master-secret-arn <> --stage <>`
-4. Apply `./db/scripts/migrations` to database created in (3).
+2. `npm install`
+3. `sls deploy --stage <stage> --app <app>`
+4. `./db/scripts/init_aws_database.sh --service-name <> --resource-arn <> --master-secret-arn <> --stage <>`
+5. Apply `./db/scripts/migrations` to database created in (3).
 
 # Additional Configuration
 
@@ -30,7 +33,7 @@ currently its Lambda only logs the events and does not persist them.
 
 ## MySQL
 
-This Lambda was originally written to leverage MySQL. The bulk of the MySQL-specific application logic was
+This Lambda was originally written to leverage MySQL as a checkpoint store. The bulk of the MySQL-specific application logic was
 maintained in doc strings of respective functions, if anyone wishes to revive it. Database migrations will
 have to be adjusted accordingly. MySQL config can be found commented in `docker-compose.yml`, as well, for 
 local use. `init_local_database.sql` will also need to be tweaked.

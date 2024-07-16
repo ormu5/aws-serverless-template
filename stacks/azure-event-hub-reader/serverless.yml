@@ -11,7 +11,7 @@ deprecationNotificationMode: warn:summary
 params:
   default: # Fallback for undefined stages (including 'local')
     logLevel: DEBUG
-    infraService: ${self:custom.defaults.infraService}
+    infraService: ${self:custom.defaults.infraService}  # Supports sls param references in default config
     databaseResourceARN: ${self:custom.defaults.database.resourceArn}
     databaseEndpoint: ${self:custom.defaults.database.endpoint}
     databaseName: ${self:custom.defaults.database.name}

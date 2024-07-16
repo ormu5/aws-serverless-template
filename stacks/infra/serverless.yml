@@ -76,10 +76,10 @@ resources:
       NotEnableHighAvailability:
         Fn::Or:
           - Fn::Equals:
-              - prod
+              - prod  # TODO: remove if included under HA, above
               - ${sls:stage}
           - Fn::Equals:
-              - staging
+              - staging  # TODO: remove if included under HA, above
               - ${sls:stage}
           - Fn::Equals:
               - dev
