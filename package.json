@@ -1,0 +1,16 @@
+{
+  "name": "aws-serverless-template",
+  "version": "1.0.0",
+  "description": "Parameterized, granular stacks - based on the [serverless framework](https://serverless.com) - for doing various things [with Lambda], along with some opinions/tooling with respect to configuration patterns and local development.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "ormu5",
+  "license": "GNU-GPLv3",
+  "workspaces": [
+    "stacks/*",
+    "libs/*"
+  ]
+}

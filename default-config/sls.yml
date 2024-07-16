@@ -1,0 +1,56 @@
+# Configuration native to the sls framework and its plugins
+package:
+  patterns:
+    - "!node_modules/**"
+    - "!tests/**"
+    - "!jest*"
+  excludeDevDependencies: true
+environmentVariables:
+  # No sensitive values / secrets
+  STAGE: ${sls:stage}
+  SERVICE: ${self:service}
+  REGION: ${self:provider.region}
+  ACCOUNT_ID: ${aws:accountId}
+  LOG_LEVEL: ${param:logLevel}
+  POWERTOOLS_SERVICE_NAME: ${self:service}
+  NODE_OPTIONS: '--enable-source-maps'  # How to enable per-stack env vars merged w/ these?
+deploymentBucket:
+  versioning: false
+  accelerate: true
+  blockPublicAccess: true
+pythonRequirements:
+  # Set the below to 'non-linux' for Docker packaging, which supports building native
+  # packages such as psycopg2, numpy, etc. Internally this plugin uses a naming convention of
+  # "sls-<service>-<stage>-PythonRequirementsLambdaLayer*" to name some CloudFormation exports.
+  # This should be taken into consideration when naming stacks within an account since export names
+  # must be unique across an account.
+  dockerizePip: false
+  layer:
+    name: ${self:service}-libraries-lambda-layer-${self:provider.stage}
+    description: Python requirements lambda layer
+    compatibleRuntimes:
+      - python3.7
+      - python3.11
+    retain: false # optional, false by default. If true, layer versions are not deleted as new ones are created
+serverless-offline:
+  ignoreJWTSignature: true
+  noAuth: true
+# Serverless offline plugins
+serverless-offline-sqs:
+  autoCreate: true  # create queue if not exists
+  apiVersion: '2012-11-05'
+  endpoint: http://localhost:9324
+  region: ${self:provider.region}
+  accessKeyId: root
+  secretAccessKey: root
+  skipCacheInvalidation: false
+  batchSize: 2
+serverless-offline-sns:
+  port: 4002 # a free port for the sns server to run on
+  debug: true
+s3:
+  host: localhost
+  directory: /tmp
+serverless-offline-ssm:  # Simulate SSM Parameter Store locally
+  stages:
+    - local

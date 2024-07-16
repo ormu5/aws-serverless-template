@@ -1,0 +1,153 @@
+Resources:
+
+  # Optionally create database security/subnet groups for this app, but by default using
+  # account-wide groups created with infra stack. A serverless database is enabled by default here,
+  # whose storage scales up from 0 and capacity is allowed to scale from 0 to 8 units.
+
+  ServerlessDatabaseClusterV1:
+    Type: AWS::RDS::DBCluster
+    DependsOn:
+      - MasterDatabaseSecret  # Will use to populate master credentials below
+    Properties:
+      MasterUsername: !Join [ ':', ['{{resolve:secretsmanager', !Ref MasterDatabaseSecret, SecretString, 'username}}']]
+      MasterUserPassword: !Join [ ':', ['{{resolve:secretsmanager', !Ref MasterDatabaseSecret, SecretString, 'password}}']]
+      DBClusterIdentifier: ${self:service}-serverless-database-cluster-v1-${sls:stage}
+      DatabaseName: ${param:databaseName}
+      EnableHttpEndpoint: true  # Enable Data API
+#      EnableIAMDatabaseAuthentication: true  # Not supported by serverless v1
+      Engine: ${param:databaseEngine}
+      EngineMode: serverless
+      EngineVersion: ${param:databaseEngineVersion}
+      ScalingConfiguration:
+        AutoPause: true
+        MaxCapacity: ${param:databaseMaxCapacity}
+        MinCapacity: ${param:databaseMinCapacity}
+        SecondsUntilAutoPause: 1800
+      DBSubnetGroupName: !GetAtt DatabaseSubnetGroupName.Value
+      VpcSecurityGroupIds:
+        - !GetAtt DatabaseSecurityGroupId.Value
+    
+  # Do not want to auto rotate this one, though will update at each deployment
+  MasterDatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: ${self:service}-master-database-secret-${sls:stage}
+      Description: Leverage GenerateSecretString to create and manage strong password we never need to see.
+      GenerateSecretString:
+        # Must be manually added to Parameter Store prior to deploying
+        SecretStringTemplate: !Join
+          - ''
+          - - '{'
+            - '"username"'
+            - ':'
+            - '"${ssm:/${self:service}/${sls:stage}/database-master-username}"'
+            - '}'
+        GenerateStringKey: password  # Will be inserted into SecretStringTemplate
+        PasswordLength: 32  # Default of 32
+        ExcludeCharacters: '"@/\\'
+
+  DatabaseResourceArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/database-resource-arn
+      Type: String
+      # Last component of below must match database cluster identifier
+      Value: arn:aws:rds:${aws:region}:${aws:accountId}:cluster:${self:service}-serverless-database-cluster-v1-${sls:stage}
+
+  DatabaseEndpoint:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/database-endpoint
+      Type: String
+      Value: !GetAtt [ServerlessDatabaseClusterV1, Endpoint.Address]
+
+  DatabasePort:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/database-port
+      Type: String
+      Value: !GetAtt [ServerlessDatabaseClusterV1, Endpoint.Port]
+
+  DatabaseAdminSecretArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/database-admin-secret-arn
+      Type: String
+      Value: !Ref MasterDatabaseSecret
+
+  DatabaseAdminPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${self:service}-db-admin-policy-${sls:stage}
+      Description: To create and modify the cluster itself.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - rds:DescribeDBClusters
+              - rds:CreateDBCluster
+              - rds:ModifyDBCluster
+              - rds:DeleteDBCluster
+              - rds:AddTagsToResource
+              - rds:CreateDBClusterSnapshot
+              - rds-data:ExecuteStatement
+            Resource:
+              - !GetAtt DatabaseResourceArn.Value
+              - !Join
+                - ':'
+                - - arn:aws:rds:${self:provider.region}:${aws:accountId}:cluster
+                  - !Ref ServerlessDatabaseClusterV1
+              - !Join
+                - ':'
+                - - arn:aws:rds:${self:provider.region}:${aws:accountId}:subgrp
+                  - !Ref DatabaseSubnetGroup
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+              - secretsmanager:List*
+              - secretsmanager:CreateSecret
+              - secretsmanager:TagResource
+            Resource:
+              - !GetAtt DatabaseAdminSecretArn.Value
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetRandomPassword
+            Resource: '*'
+
+#  DatabaseAdminRole:
+#    Type: AWS::IAM::Role
+#    Properties:
+#      RoleName: ${self:service}-db-admin-role-${self:provider.stage}
+#      Description: Administrative role, used for database deployments/migrations.
+#      AssumeRolePolicyDocument:
+#        Version: '2012-10-17'
+#        Statement:
+#          - Effect: Allow
+#            Principal:
+#              AWS: arn:aws:iam::${aws:accountId}:role/AWSReservedSSO_AdministratorAccess*  # Default AWS-managed admin role
+#            Action: sts:AssumeRole
+#      Path: /
+#      ManagedPolicyArns:
+#        - !Ref DatabaseAdminPolicy
+
+
+#  DatabaseRecord:
+#    Type: AWS::Route53::RecordSet
+#    Condition: HostedZoneDeployed
+#    Properties:
+#      HostedZoneId:  ${ssm:/${param:frontendServiceName}/${sls:stage}/hosted-zone-id, ''}
+#      Name: !Join
+#        - .
+#        - - db
+#          - ${param:targetAirline}
+#          - ${sls:stage}
+#          - ${param:domainApex}
+#      ResourceRecords:
+#        - !GetAtt ServerlessDatabaseClusterV1.Endpoint.Address
+#      TTL: '900'
+#      Type: CNAME
+
+
+

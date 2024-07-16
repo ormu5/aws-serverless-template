@@ -1,0 +1,382 @@
+Resources:
+
+  # Default security groups will get created with the VPC, attributes (name, tags, etc.) of which
+  # currently must be manually modified via the console. Though we will not plan on using default security group;
+  # i.e., we will create our own.
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: ${param:VPCCIDRBlock}
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name  # This tag ends up also populating the 'Name' field in console
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - vpc
+              - ${sls:stage}
+
+  InfraPrivateSubnetA:
+    DependsOn:
+      - VPC
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      # !GetAZs: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getavailabilityzones.html
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [2, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - infra-private-subnet
+              - !Select [0, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [0, !GetAZs '']
+
+  InfraPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [3, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - infra-private-subnet
+              - !Select [1, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [1, !GetAZs '']
+
+  InfraPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [0, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - infra-public-subnet
+              - !Select [0, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [0, !GetAZs '']
+
+  InfraPublicSubnetB:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [1, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - infra-public-subnet
+              - !Select [1, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [1, !GetAZs '']
+
+  LambdaPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [4, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - lambda-private-subnet
+              - !Select [0, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [0, !GetAZs '']
+
+  LambdaPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [5, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - lambda-private-subnet
+              - !Select [1, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [1, !GetAZs '']
+
+  LambdaWithNATPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [6, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - lambda-with-nat-private-subnet
+              - !Select [0, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [0, !GetAZs '']
+
+  LambdaWithNATPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [7, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - lambda-with-nat-private-subnet
+              - !Select [1, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [1, !GetAZs '']
+
+  DatabasePrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [8, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - database-private-subnet
+              - !Select [0, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [0, !GetAZs '']
+
+  DatabasePrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    DependsOn:
+      - VPC
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [9, '${param:subnetCIDRBlocks}']
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - ${self:service}
+              - database-private-subnet
+              - !Select [1, !GetAZs '']
+              - ${sls:stage}
+        - Key: az
+          Value: !Select [1, !GetAZs '']
+
+  # An internet gateway serves two purposes: to provide a target in your VPC route tables
+  # for internet-routable traffic, and to perform network address translation (NAT) for instances
+  # that have been assigned public IPv4 addresses.
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ${self:service}-internet-gateway-${sls:stage}
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  # Route tables and their subnet associations
+
+  PublicRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ${self:service}-public-route-table-a-${sls:stage}
+
+  PublicRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ${self:service}-public-route-table-b-${sls:stage}
+
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ${self:service}-private-route-table-a-${sls:stage}
+
+  PrivateRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ${self:service}-private-route-table-b-${sls:stage}
+
+  PrivateWithNATRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ${self:service}-private-with-nat-route-table-a-${sls:stage}
+
+  PrivateWithNATRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ${self:service}-private-with-nat-route-table-b-${sls:stage}
+
+  InfraPublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableA
+      SubnetId: !Ref InfraPublicSubnetA
+
+  InfraPublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableB
+      SubnetId: !Ref InfraPublicSubnetB
+
+  LambdaPrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref LambdaPrivateSubnetA
+
+  LambdaPrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableB
+      SubnetId: !Ref LambdaPrivateSubnetB
+
+  LambdaWithNATPrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateWithNATRouteTableA
+      SubnetId: !Ref LambdaWithNATPrivateSubnetA
+
+  LambdaWithNATPrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateWithNATRouteTableB
+      SubnetId: !Ref LambdaWithNATPrivateSubnetB
+
+  # To store our route rules
+
+  InternetGatewayRouteA:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0  # Must be this value since using Internet gateway
+      GatewayId: !Ref InternetGateway
+
+  InternetGatewayRouteB:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0  # Must be this value since using Internet gateway
+      GatewayId: !Ref InternetGateway
+
+  # See nat.yml for routes specific to NAT, supporting HA vs non HA
+
+  # Make some things available to others via Parameter Store
+
+  VPCId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/vpc-id
+      Type: String
+      Value: !Ref VPC
+
+  InfraPrivateSubnetIds:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/infra-private-subnet-ids
+      Type: StringList
+      Value: !Join [ ',', [!Ref InfraPrivateSubnetA, !Ref InfraPrivateSubnetB]]
+
+  LambdaPrivateSubnetIds:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:service}/${sls:stage}/lambda-private-subnet-ids
+        Type: StringList
+        Value: !Join [ ',', [!Ref LambdaPrivateSubnetA, !Ref LambdaPrivateSubnetB]]
+
+  LambdaWithNATPrivateSubnetIds:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:service}/${sls:stage}/lambda-with-nat-private-subnet-ids
+        Type: StringList
+        Value: !Join [ ',', [!Ref LambdaWithNATPrivateSubnetA, !Ref LambdaWithNATPrivateSubnetB]]
+
+  DatabasePrivateSubnetIds:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:service}/${sls:stage}/database-private-subnet-ids
+        Type: StringList
+        Value: !Join [ ',', [!Ref DatabasePrivateSubnetA, !Ref DatabasePrivateSubnetB]]

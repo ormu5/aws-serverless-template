@@ -1,0 +1,35 @@
+# This file captures common default configuration syntax for services/stacks conforming to standard
+# implementation, imported by sls for each stack, overridable/customizable from within a given stack.
+# Not referenced by infra stack as it is a dependency for some of this config.
+
+# Brief name of the overall application, if applicable, to be made available for
+# use in stack names; i.e., consider incorporating app names into each respective
+# service/stack name since app name is no longer a standard field in the sls framework.
+app: ${opt:app, 'default-app'}
+region: ${opt:region, 'us-east-1'}
+projectRepo: https://github.com/ormu5/aws-serverless-template
+deploymentBucketBaseName: ${opt:app, 'default-app'}-${aws:accountId}-sls-deployment-bucket  # One per account
+uniqueString: uni1qu3ly5  # Optionally available for use where further differentiation is needed in identifiers
+#domainApex: example.com
+#apexHostedZone: <identifier string>
+
+infraService: ${opt:app, 'default-app'}-infra  # Match infra service name: adjust if infra service name is different
+
+# Path in the context of calling stack
+sls: ${file(../../default-config/sls.yml)}
+iam: ${file(../../default-config/iam.yml)}
+vpc: ${file(../../default-config/vpc.yml)}
+
+sqs:
+  maxReceiveCount: 5
+  messageRetentionPeriod: 1209600  # 14 days (max)
+
+database:
+  # Default to single database cluster in the infra stack
+  resourceArn: ${ssm:/${param:infraService}/${sls:stage}/database-resource-arn}
+  endpoint: ${ssm:/${param:infraService}/${sls:stage}/database-endpoint}
+  # With each service having its own database in that cluster
+  name: ${ssm:/${self:service}/${sls:stage}/database-name}
+
+
+

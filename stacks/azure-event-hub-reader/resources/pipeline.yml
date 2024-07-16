@@ -1,0 +1,53 @@
+Resources:
+
+  HydratedEventsTopicV1:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ${self:service}-hydrated-events-topic-v1-${sls:stage}
+
+  HydratedEventsReceiverDlqQueueV1:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-hydrated-events-receiver-dlq-queue-v1-${sls:stage}
+      MessageRetentionPeriod: ${self:custom.defaults.sqs.messageRetentionPeriod}
+
+  # Consumer of events from remove event hub, as populated by Lambda reader
+  HydratedEventsReceiverQueueV1:
+    Type: AWS::SQS::Queue
+    DependsOn: HydratedEventsReceiverDlqQueueV1
+    Properties:
+      QueueName: ${self:service}-hydrated-events-receiver-queue-v1-${sls:stage}
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt HydratedEventsReceiverDlqQueueV1.Arn
+        maxReceiveCount: ${self:custom.defaults.sqs.maxReceiveCount}
+
+  HydratedEventsReceiverQueueV1Subscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt HydratedEventsReceiverQueueV1.Arn
+      Protocol: sqs
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt HydratedEventsReceiverDlqQueueV1.Arn
+      TopicArn: !Ref HydratedEventsTopicV1
+
+  # Enable SNS to actually send messages to this queue
+  HydratedEventsReceiverQueueV1Policy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sqs:SendMessage
+            Resource:
+              - !GetAtt HydratedEventsReceiverQueueV1.Arn
+            Principal:
+              Service: sns.amazonaws.com
+            Condition:
+              ArnEquals:
+                aws:SourceArn:
+                  - !Ref HydratedEventsTopicV1
+      Queues:
+        - !Ref HydratedEventsReceiverQueueV1
+        - !Ref HydratedEventsReceiverDlqQueueV1
+

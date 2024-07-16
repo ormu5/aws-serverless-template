@@ -1,0 +1,101 @@
+service: ${opt:app}-infra
+frameworkVersion: '3'
+
+# See https://www.serverless.com/framework/docs/configuration-validation
+configValidationMode: error
+deprecationNotificationMode: warn:summary
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!tests/**'
+
+# Deploy-time parameters
+params:
+  default:  # For all environments
+    logLevel: DEBUG
+    VPCCIDRBlock: 10.0.0.0/16
+    # Place private subnets within even-numbered class C networks, public subnets the odd ones, and
+    # each AZ gets one private and one public subnet`
+    subnetCIDRBlocks:
+      - 10.0.1.0/24  # Public infra subnet A
+      - 10.0.3.0/24  # Public infra subnet B
+      - 10.0.0.0/24  # Private infra subnet A
+      - 10.0.2.0/24  # Private infra subnet B
+      - 10.0.4.0/24  # Private lambda subnet without NAT access A
+      - 10.0.6.0/24  # Private lambda subnet without NAT access B
+      - 10.0.8.0/24  # Private lambda subnet with NAT access A
+      - 10.0.10.0/24  # Private lambda subnet with NAT access B
+      - 10.0.12.0/24  # Private database subnet A
+      - 10.0.14.0/24  # Private database subnet B
+    # As configured stands up a serverless cluster/database for use by other stacks.
+    # By all means consider a database per stack (e.g., microservices pattern) where this
+    # config and `database.yml` are maintained in individual stacks.
+    databaseName: ${ssm:/${self:service}/${sls:stage}/database-name}
+    databasePort: 5432
+    databaseEngine: aurora-postgresql
+    databaseEngineVersion: 13.12
+    databaseMinCapacity: 2
+    databaseMaxCapacity: 8
+  # Environment overrides
+  prod:
+    logLevel: INFO
+
+provider:
+  name: aws
+  stage: ${opt:stage, 'local'}
+  region: ${opt:region, 'us-east-1'}
+  stackName: ${self:service}-stack-${sls:stage}
+
+  # Optional CloudFormation tags to apply to APIs and functions
+  tags:  # Will be applied to all resources in stack
+    service: ${self:service}
+  stackTags:
+    service: ${self:service}
+
+  deploymentBucket:  # See additional config in plugins section
+    name: ${opt:app, 'myapp'}-${aws:accountId}-sls-deployment-bucket
+
+resources:
+  - ${file(resources/networking.yml)}
+  - ${file(resources/security-groups.yml)}
+  - ${file(resources/vpc-endpoints.yml)}
+  - ${file(resources/nat.yml)}
+  - ${file(resources/database.yml)}
+
+  # Constrain some aspects of HA (multiple AZs) to only certain stages (resource costs)
+  - Conditions:
+      EnableHighAvailability:
+        Fn::Or:
+          - Fn::Equals:
+              - prodplaceholder  # TODO: change to prod for prod HA
+              - ${sls:stage}
+          - Fn::Equals:
+              - stagingplaceholder  # TODO: change to staging for staging HA
+              - ${sls:stage}
+      NotEnableHighAvailability:
+        Fn::Or:
+          - Fn::Equals:
+              - prod
+              - ${sls:stage}
+          - Fn::Equals:
+              - staging
+              - ${sls:stage}
+          - Fn::Equals:
+              - dev
+              - ${sls:stage}
+
+custom:
+
+  deployTime: ${file(../../gettime.js)}
+
+  # Plugins config
+
+  deploymentBucket:
+    versioning: false  # sls has its own versioning scheme
+    accelerate: true
+    blockPublicAccess: true
+
+plugins:
+  - serverless-deployment-bucket
+

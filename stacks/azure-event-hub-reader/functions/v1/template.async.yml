@@ -1,0 +1,61 @@
+ingestEventsV1:
+  name: &functionName ${self:service}-ingest-events-lambda-v1-${sls:stage}
+  handler: functions/v1/handlerAsyncIngest.ingestEvents
+  architecture: arm64
+  timeout: 60  # Needs to line-up with cron (for now?)
+  reservedConcurrency: 1  # TODO: Next iteration, removed/adjusted when worker manager Lambda is used
+  events:  # TODO: Next iteration, below moves to worker manager Lambda
+    - schedule:
+        # Cron needs to line-up with timeout (for now?)
+        rate: cron(* * * * ? *)
+#        rate: cron(0/15 * * * ? *)  # Every 15 minutes,
+        enabled: true
+  vpc: ${self:custom.defaults.vpc.withInternet}  # Requires internet access
+  iamRoleStatementsName: *functionName
+  iamRoleStatementsInherit: true
+  iamRoleStatements:
+    - ${self:custom.defaults.iam.statements.readParams}
+    - ${self:custom.defaults.iam.statements.decryptParams}
+    - ${self:custom.defaults.iam.statements.readSecrets}
+    - ${self:custom.defaults.iam.statements.readAndWriteDatabase}
+    - Sid: WriteToSNS
+      Effect: Allow
+      Action: ${self:custom.defaults.iam.actions.writeToSNS}
+      Resource: !Ref HydratedEventsTopicV1
+
+#manageIngestWorkersV1:
+#  name: ${self:service}-manage-ingest-workers-lambda-v1-${sls:stage}
+#  handler: functions/v1/handlerAsyncIngest.manageIngestWorkers
+#  events:
+#    - schedule:
+#        rate: cron(* * * * ? *)  # Every minute
+#        enabled: true
+
+insertHydratedEventsV1:
+  name: &functionName ${self:service}-insert-hydrated-events-lambda-v1-${sls:stage}
+  handler: functions/v1/handlerAsyncInsert.insertHydratedEvents
+  events:
+    - sqs:
+        arn: !GetAtt HydratedEventsReceiverQueueV1.Arn
+  iamRoleStatementsName: *functionName
+  iamRoleStatementsInherit: true
+  iamRoleStatements:
+    - Sid: ReadFromSQS
+      Effect: Allow
+      Action: ${self:custom.defaults.iam.actions.readFromSQS}
+      Resource: !GetAtt HydratedEventsReceiverQueueV1.Arn
+
+insertHydratedEventsDlqV1:
+  name: &functionName ${self:service}-insert-hydrtd-events-lambda-dlq-v1-${sls:stage}
+  handler: functions/v1/handlerAsyncInsert.insertHydratedEventsDlq
+  events:
+    - sqs:
+        arn: !GetAtt HydratedEventsReceiverDlqQueueV1.Arn
+  iamRoleStatementsName: *functionName
+  iamRoleStatementsInherit: true
+  iamRoleStatements:
+    - Sid: ReadFromSQS
+      Effect: Allow
+      Action: ${self:custom.defaults.iam.actions.readFromSQS}
+      Resource: !GetAtt HydratedEventsReceiverDlqQueueV1.Arn
+

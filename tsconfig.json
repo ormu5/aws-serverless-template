@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "lib": [
+      "esnext"
+    ],
+    "module": "NodeNext",
+    "outDir": "./.build",
+    "sourceMap": true,
+    "target": "esnext",
+    "noEmit": false,
+    "isolatedModules": true,
+    "baseUrl": "./"
+  },
+  "include": [
+      "./**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "./**/*.js"
+  ]
+}

@@ -1,0 +1,31 @@
+# VPC config for Lambdas - depending on need for Internet access - available for import by individual Lambdas
+withoutInternet:
+  securityGroupIds:
+    - !Ref LambdaSecurityGroup  # References securityGroup.Resources.LambdaSecurityGroup
+    - ${ssm:/${param:infraService}/${sls:stage}/vpc-endpoint-security-group-id}
+  subnetIds: ${ssm:/${param:infraService}/${sls:stage}/lambda-private-subnet-ids}
+withInternet:
+  securityGroupIds:
+    - !Ref LambdaSecurityGroup  # References securityGroup.Resources.LambdaSecurityGroup
+    - ${ssm:/${param:infraService}/${sls:stage}/vpc-endpoint-security-group-id}
+  subnetIds: ${ssm:/${param:infraService}/${sls:stage}/lambda-with-nat-private-subnet-ids}
+# Service-specific Lambda security group, available for import at the service level for
+# setting up a Lambda security group isolated to that service
+lambdaSecurityGroup:
+  Resources:
+    LambdaSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: ${self:service}-lambda-security-group-${sls:stage}
+        GroupDescription: Security group for Lambdas belonging to this service.
+        VpcId: ${ssm:/${param:infraService}/${sls:stage}/vpc-id}
+databaseSecurityGroup:
+  Resources:
+    DatabaseSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for database(s) associated with this service.
+        GroupName: ${self:service}-db-security-group-${sls:stage}
+        VpcId: !Ref VPC
+
+

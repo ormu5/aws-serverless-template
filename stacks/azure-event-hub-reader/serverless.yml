@@ -1,0 +1,175 @@
+service: ${self:custom.defaults.app}-aeh-reader  # Don't *have* to include app in service name but doing so
+frameworkVersion: '3'
+
+# See https://www.serverless.com/framework/docs/configuration-validation
+configValidationMode: error
+deprecationNotificationMode: warn:summary
+
+#package: ${self:custom.defaults.sls.package}
+
+# Deploy-time parameters
+params:
+  default: # Fallback for undefined stages (including 'local')
+    logLevel: DEBUG
+    infraService: ${self:custom.defaults.infraService}
+    databaseResourceARN: ${self:custom.defaults.database.resourceArn}
+    databaseEndpoint: ${self:custom.defaults.database.endpoint}
+    databaseName: ${self:custom.defaults.database.name}
+  prod: # params for prod stage
+    logLevel: INFO
+
+provider:
+  name: aws
+  stage: ${opt:stage, 'local'}
+  region: ${self:custom.defaults.region}
+  stackName: ${self:service}-stack-${sls:stage}
+
+  # function configuration
+  runtime: nodejs18.x
+  memorySize: 128 # optional, in MB, default is 1024
+  timeout: 20 # optional, in seconds, default is 6
+  versionFunctions: false # optional, default is true
+
+  # Default IAM permissions include account-wide network + log permissions via AWS managed
+  # policy. This configuration is inherited by each function via serverless-iamroles plugin and
+  # additional permissions granted within each function, as needed.
+#  iam:
+
+  vpc: ${self:custom.defaults.vpc.withoutInternet}  # No internet, by default
+
+  # Run-time parameters (non sensitive)
+  environment: ${self:custom.defaults.sls.environmentVariables}
+
+  # Optional CloudFormation tags to apply to APIs and functions
+  tags:
+    service: ${self:service}
+  stackTags:
+    service: ${self:service}
+
+  deploymentBucket:  # See additional config in plugins section
+    name: ${self:custom.defaults.deploymentBucketBaseName}
+
+
+resources:
+  - ${file(resources/pipeline.yml)}
+  - ${self:custom.defaults.vpc.lambdaSecurityGroup}
+  - Resources:
+      # TODO: Setup password rotation
+      DatabaseDeploymentSecret:
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: ${self:service}-database-deployment-secret-${sls:stage}
+          Description: Leverage GenerateSecretString to create and manage strong password we never need to see.
+          GenerateSecretString:
+            # Must be manually added to Parameter Store prior to deploying
+            SecretStringTemplate: !Join
+              - ''
+              - - '{'
+                - '"username"'
+                - ':'
+                - '"${ssm:/${self:service}/${sls:stage}/database-deployment-username}"'
+                - '}'
+            GenerateStringKey: password  # Will be inserted into SecretStringTemplate
+            PasswordLength: 32  # Default of 32
+            ExcludeCharacters: '"@/\\'
+      DatabaseRuntimeSecret:
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: ${self:service}-database-runtime-secret-${sls:stage}
+          Description: Leverage GenerateSecretString to create and manage strong password we never need to see.
+          GenerateSecretString:
+            # Must be manually added to Parameter Store prior to deploying
+            SecretStringTemplate: !Join
+              - ''
+              - - '{'
+                - '"username"'
+                - ':'
+                - '"${ssm:/${self:service}/${sls:stage}/database-runtime-username}"'
+                - '}'
+            GenerateStringKey: password  # Will be inserted into SecretStringTemplate
+            PasswordLength: 32  # Default of 32
+            ExcludeCharacters: '"@/\\'
+
+      # To Parameter Store
+
+      DatabaseDeploymentSecretArn:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /${self:service}/${sls:stage}/database-deployment-secret-arn
+          Type: String
+          Value: !Ref DatabaseDeploymentSecret
+      DatabaseRuntimeSecretArn:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /${self:service}/${sls:stage}/database-runtime-secret-arn
+          Type: String
+          Value: !Ref DatabaseRuntimeSecret
+      DatabaseResourceArn:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /${self:service}/${sls:stage}/database-resource-arn
+          Type: String
+          Value: ${param:databaseResourceARN}
+      DatabaseEndpoint:
+        Type: AWS::SSM::Parameter
+        Properties:
+          Name: /${self:service}/${sls:stage}/database-endpoint
+          Type: String
+          Value: ${param:databaseEndpoint}
+
+functions:
+  - ${file(functions/v1/template.async.yml)}
+
+custom:
+
+  deployTime: ${file(../../gettime.js)}
+  defaults: ${file(../../default-config/main.yml)}
+
+  # Plugin config
+
+  deploymentBucket:
+    versioning: false
+    accelerate: true
+    blockPublicAccess: true
+
+  serverless-offline:
+    ignoreJWTSignature: true
+    noAuth: true
+
+  serverless-offline-ssm:
+    stages:
+      - local
+
+  serverless-offline-sqs:
+    autoCreate: true
+    apiVersion: '2012-11-05'
+    endpoint: http://localhost:9324
+    region: ${self:provider.region}
+    accessKeyId: root
+    secretAccessKey: root
+    skipCacheInvalidation: false
+
+  serverless-offline-sns:
+    port: 4002 # a free port for the sns server to run on
+    debug: false
+    subscriptions:
+      - topic:
+          topicName: ${self:service}-hydrated-events-topic-v1-${sls:stage}
+          rawMessageDelivery: 'true'
+        queue: http://localhost:9324/000000000000/${self:service}-hydrated-events-receiver-queue-v1-${sls:stage}
+
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: external
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline-sqs
+  - serverless-offline-sns
+  - serverless-offline-ssm
+  - serverless-offline
+  - serverless-deployment-bucket
+  - serverless-iamroles
+
+

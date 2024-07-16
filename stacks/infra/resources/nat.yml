@@ -1,0 +1,75 @@
+# Handle NAT aspects for public/private subnet traffic, if needed. This may not be necessary if no outbound
+# Internet access is needed and access to AWS resources can be accomplished via VPC Endpoints (recommended)
+# or resources are deployed within VPC.
+Conditions:
+
+Resources:
+  NatIPA:
+    Type: AWS::EC2::EIP
+    DependsOn:
+      - InternetGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: ${self:service}-nat-eip-a-${sls:stage}
+
+  NatIPB:
+    Type: AWS::EC2::EIP
+    Condition: EnableHighAvailability
+    DependsOn:
+      - InternetGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: ${self:service}-nat-eip-b-${sls:stage}
+
+  NatGatewayA:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatIPA.AllocationId
+      SubnetId: !Ref InfraPublicSubnetA
+      Tags:
+        - Key: Name
+          Value: ${self:service}-nat-gateway-a-${sls:stage}
+
+  NatGatewayB:
+    Type: AWS::EC2::NatGateway
+    Condition: EnableHighAvailability
+    Properties:
+      AllocationId: !GetAtt NatIPB.AllocationId
+      SubnetId: !Ref InfraPublicSubnetB
+      Tags:
+        - Key: Name
+          Value: ${self:service}-nat-gateway-b-${sls:stage}
+
+  NatRouteA:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - NatGatewayA
+    Properties:
+      RouteTableId: !Ref PrivateWithNATRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+
+  # Accommodate non HA by route in RouteTableB using NAT Gateway A
+  NatRouteBNonHighAvailability:
+    Type: AWS::EC2::Route
+    Condition: NotEnableHighAvailability
+    DependsOn:
+      - NatGatewayA
+    Properties:
+      RouteTableId: !Ref PrivateWithNATRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+
+  NatRouteB:
+    Type: AWS::EC2::Route
+    Condition: EnableHighAvailability
+    DependsOn:
+      - NatGatewayB
+    Properties:
+      RouteTableId: !Ref PrivateWithNATRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayB

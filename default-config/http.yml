@@ -1,0 +1,45 @@
+# TODO: migrate this to common config
+
+statusCodes:
+  get:
+    200:
+      pattern: ''  # Default response method
+    500:
+      pattern: '.*\[InternalServerError\].*'  # JSON response
+      template: $input.path("$.errorMessage")
+      headers:
+        Content-Type: "'application/json'"
+  post:
+    201:
+      pattern: ''  # Default response method
+    409:
+      pattern: '.*\[ResourceConflict\].*'  # JSON response
+      template: $input.path("$.errorMessage")
+      headers:
+        Content-Type: "'application/json'"
+    410:
+      pattern: '.*\[ResourceNoLongerAvailable\].*'  # JSON response
+      template: $input.path("$.errorMessage")
+      headers:
+        Content-Type: "'application/json'"
+    500:
+      pattern: '.*\[InternalServerError\].*'  # JSON response
+      template: $input.path("$.errorMessage")
+      headers:
+        Content-Type: "'application/json'"
+  put:
+    204:
+      pattern: ''  # Default response method
+    500:
+      pattern: '.*\[InternalServerError\].*'  # JSON response
+      template: $input.path("$.errorMessage")
+      headers:
+        Content-Type: "'application/json'"
+  delete:
+    204:
+      pattern: ''  # Default response method
+    500:
+      pattern: '.*\[InternalServerError\].*'  # JSON response
+      template: $input.path("$.errorMessage")
+      headers:
+        Content-Type: "'application/json'"

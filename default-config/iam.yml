@@ -1,0 +1,71 @@
+functionName: &functionName _  # To be overridden (this may go away)
+
+# Service-specific IAM statements available for import by individual Lambdas
+statements:
+  readParams:  # Read access to the given service's SSM params
+    Sid: ReadParams
+    Effect: Allow
+    Action:
+      - ssm:GetParameter
+      - ssm:GetParameters
+      - ssm:GetParametersByPath
+    Resource:
+      - arn:aws:ssm:${self:provider.region}:${aws:accountId}:parameter/${self:service}/${sls:stage}/*
+  decryptParams:  # When default account key is used for SecureString encryption
+    Sid: DecryptParams
+    Effect: Allow
+    Action: kms:Decrypt
+    Resource: arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/aws/ssm
+  readSecrets:  # Read access to the given service's entries in Secrets Manager
+    Sid: ReadSecrets
+    Effect: Allow
+    Action: secretsmanager:GetSecretValue
+    Resource: arn:aws:secretsmanager:${self:provider.region}:${aws:accountId}:secret:${self:service}-*-${sls:stage}*
+  readAndWriteDatabase:  # Read access (via Data API) to the given service's database cluster
+    Sid: ReadAndWriteDatabase
+    Effect: Allow
+    Action:
+      - rds-data:BatchExecuteStatement
+      - rds-data:BeginTransaction
+      - rds-data:CommitTransaction
+      - rds-data:ExecuteStatement
+      - rds-data:RollbackTransaction
+    Resource: ${param:databaseResourceARN}
+  configureNetwork:  # Currently not referenced/used since included by sls framework by default
+    Sid: ConfigureNetwork
+    Effect: Allow
+    Action:
+      - ec2:CreateNetworkInterface
+      - ec2:DescribeNetworkInterfaces
+      - ec2:DeleteNetworkInterface
+    Resource: '*'
+  writeLogs:  # Currently not referenced/used since included by sls framework by default
+    Sid: WriteLogs
+    Effect: Allow
+    Action:
+      - logs:CreateLogGroup
+      - logs:CreateLogStream
+      - logs:PutLogEvents
+    Resource:
+      - !Join
+        - ''
+        - - !Sub arn:aws:logs:${self:provider.region}:${aws:accountId}:log-group:/aws/lambda/
+          - *functionName
+          - ':*'
+      - !Join
+        - ''
+        - - !Sub arn:aws:logs:${self:provider.region}:${aws:accountId}:log-group:/aws/lambda/
+          - *functionName
+          - ':*:*'
+
+# Concise IAM actions for common Lambda tasks, available for import by individual Lambdas
+actions:
+  # For a Lambda that needs to work a queue
+  readFromSQS:
+    - sqs:ReceiveMessage
+    - sqs:DeleteMessage
+    - sqs:GetQueueAttributes
+    - sqs:ChangeMessageVisibility
+  # For a Lambda that needs to publish to a SNS topic
+  writeToSNS:
+    - sns:Publish

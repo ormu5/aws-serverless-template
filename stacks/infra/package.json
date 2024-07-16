@@ -1,0 +1,17 @@
+{
+  "name": "infra",
+  "version": "0.0.1",
+  "description": "AWS infrastructure(VPC, subnets, etc)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "GNU-GPLv3",
+  "dependencies": {
+    "serverless": "^3.35.2"
+  },
+  "devDependencies": {
+    "serverless-deployment-bucket": "^1.6.0"
+  }
+}

@@ -1,0 +1,108 @@
+# Keep traffic on AWS network, can preclude need for NAT Gateway. There are cost implications
+# to both use of NAT and VPC Endpoints (especially as the number of endpoints increases). Each AWS service
+# used by application must be made available via VPC endpoint if NAT gateway is not to be used.
+# https://aws.amazon.com/vpc/pricing/
+
+Resources:
+
+  # No data processing or hourly charges for using Gateway Type VPC endpoints
+
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+#      PolicyDocument:  # By default, full access for services in the VPC
+      RouteTableIds:  # Associate with all private subnet route tables
+        - !Ref PrivateRouteTableA
+        - !Ref PrivateRouteTableB
+        - !Ref PrivateWithNATRouteTableA
+        - !Ref PrivateWithNATRouteTableB
+      ServiceName: com.amazonaws.${self:provider.region}.s3
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
+
+  # Minimum VPC interface endpoints if no NAT gateway is present
+  # Interface type VPC Endpoints leverage AWS PrivateLink and incur additional cost for
+  # each availability zone the VPC endpoint is setup in (i.e., for each ENI). Once setup
+  # services will use the VPC endpoint instead of NAT gateway.
+
+  SSMVPCEndpoint:  # e.g., to access Parameter Store
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+#      PolicyDocument:  # By default, full access for services in the VPC
+      PrivateDnsEnabled: true
+      # Just need to specify *one* subnet from each availability zone. Other subnets in each
+      # AZ will then also be able to use the endpoint by referencing its qualified name.
+      SubnetIds:
+        Fn::If:
+          - EnableHighAvailability
+          - Fn::Split:
+              - ','
+              - !GetAtt InfraPrivateSubnetIds.Value
+          - - !Ref InfraPrivateSubnetA
+      ServiceName: com.amazonaws.${self:provider.region}.ssm
+      VpcEndpointType: Interface
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+      VpcId: !Ref VPC
+
+  SQSVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+#      PolicyDocument:  # By default, full access for services in the VPC
+      PrivateDnsEnabled: true
+      # Just need to specify *one* subnet from each availability zone. Other subnets in each
+      # AZ will then also be able to use the endpoint by referencing its qualified name.
+      SubnetIds:
+        Fn::If:
+          - EnableHighAvailability
+          - Fn::Split:
+              - ','
+              - !GetAtt InfraPrivateSubnetIds.Value
+          - - !Ref InfraPrivateSubnetA
+      ServiceName: com.amazonaws.${self:provider.region}.sqs
+      VpcEndpointType: Interface
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+      VpcId: !Ref VPC
+
+  SNSVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+#      PolicyDocument:  # By default, full access for services in the VPC
+      PrivateDnsEnabled: true
+      # Just need to specify *one* subnet from each availability zone. Other subnets in each
+      # AZ will then also be able to use the endpoint by referencing its qualified name.
+      SubnetIds:
+        Fn::If:
+          - EnableHighAvailability
+          - Fn::Split:
+              - ','
+              - !GetAtt InfraPrivateSubnetIds.Value
+          - - !Ref InfraPrivateSubnetA
+      ServiceName: com.amazonaws.${self:provider.region}.sns
+      VpcEndpointType: Interface
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+      VpcId: !Ref VPC
+
+#  LambdaVPCEndpoint:
+#    Type: AWS::EC2::VPCEndpoint
+#    Properties:
+##      PolicyDocument:  # By default, full access for services in the VPC
+#      PrivateDnsEnabled: true
+#      # Just need to specify *one* subnet from each availability zone. Other subnets in each
+#      # AZ will then also be able to use the endpoint by referencing its qualified name.
+#      SubnetIds:
+#        Fn::If:
+#          - EnableHighAvailability
+#          - Fn::Split:
+#              - ','
+#              - !GetAtt InfraPrivateSubnetIds.Value
+#          - - !Ref InfraPrivateSubnetA
+#      ServiceName: com.amazonaws.${self:provider.region}.lambda
+#      VpcEndpointType: Interface
+#      SecurityGroupIds:
+#        - !Ref VPCEndpointSecurityGroup
+#      VpcId: !Ref VPC
+
+

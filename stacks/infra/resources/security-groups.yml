@@ -1,0 +1,85 @@
+# Security and subnet groups we are likely to use; could also/optionally break out to app level
+
+Resources:
+
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Members include all VPC endpoints.
+      GroupName: ${self:service}-vpc-endpoint-security-group-${sls:stage}
+      VpcId: !Ref VPC
+
+  VPCEndpointSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow connections from within this security group.
+#      CidrIp: !Ref VPCCidrBlock  # If allowing traffic from anywhere in VPC
+      GroupId: !GetAtt VPCEndpointSecurityGroup.GroupId
+      SourceSecurityGroupId: !GetAtt VPCEndpointSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+
+#  LambdaIngress:
+#    Type: AWS::EC2::SecurityGroupIngress
+#    Properties:
+#      Description: Allow connections from within this security group.
+##      CidrIp: !Ref VPCCidrBlock  # If allowing traffic from anywhere in VPC
+#      GroupId: !GetAtt LambdaSecurityGroup.GroupId
+#      SourceSecurityGroupId: !GetAtt LambdaSecurityGroup.GroupId
+#      IpProtocol: tcp
+#      FromPort: 1
+#      ToPort: 65535
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for databases associated with central data.
+      GroupName: ${self:service}-database-security-group-${sls:stage}
+      VpcId: !Ref VPC
+
+  DatabaseSubnetGroup:  # Required for binding RDS to VPC
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for central data databases."
+      # Must have at least two subnets for RDS
+      SubnetIds:
+        Fn::Split:
+          - ','
+          - !GetAtt DatabasePrivateSubnetIds.Value
+      Tags:
+        - Key: Name
+          Value: ${self:service}-database-subnet-group-${sls:stage}
+
+#  DatabaseIngress:
+#    Type: AWS::EC2::SecurityGroupIngress
+#    Properties:
+#      Description: Allow DB connections from within database security group.
+#      FromPort: ${param:dbPort}
+#      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+#      IpProtocol: tcp
+#      SourceSecurityGroupId: !GetAtt DatabaseSecurityGroup.GroupId
+#      ToPort: ${param:dbPort}
+
+  # Make some things available to others via Parameter Store
+
+  VPCEndpointSecurityGroupId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/vpc-endpoint-security-group-id
+      Type: String
+      Value: !GetAtt VPCEndpointSecurityGroup.GroupId
+
+  DatabaseSecurityGroupId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/database-security-group-id
+      Type: String
+      Value: !GetAtt DatabaseSecurityGroup.GroupId
+
+  DatabaseSubnetGroupName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /${self:service}/${sls:stage}/database-subnet-group
+      Type: String
+      Value: !Ref DatabaseSubnetGroup

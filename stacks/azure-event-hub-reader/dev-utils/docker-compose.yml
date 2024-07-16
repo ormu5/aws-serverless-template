@@ -1,0 +1,74 @@
+services:
+
+  db:
+    image: postgres:13.15-alpine3.20
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - 5432:5432
+    # Set a volume so that database is not lost after shutting down the container.
+    volumes:
+      - ../db/scripts/docker-container-init.sh:/docker-entrypoint-initdb.d/docker-container-init.sh
+      - ../db/scripts/init_local_database.sql:/docker-entrypoint-initdb.d/init_local_database.sql
+      # Enable the following line to persist data across container invocations
+  #      - ./postgres-data:/var/lib/postgresql/data
+
+# If using MySQL
+#  db:
+#    platform: linux/x86_64
+#    image: mysql:5.7
+#    environment:
+#      - MYSQL_ROOT_PASSWORD=rootpass
+#      - MYSQL_USER=admin
+#      - MYSQL_PASSWORD=admin
+#    command: --secure-file-priv='' --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+#    ports:
+#      - 3306:3306
+#    volumes:
+#      - ../db/scripts/init_database.sql:/docker-entrypoint-initdb.d/init_database.sql
+#      - ./sample-data:/tmp/sample-data/
+
+  flyway:
+    image: flyway/flyway:10.15.2-alpine
+    command: migrate
+    volumes:
+      - ../db/scripts/migrations:/flyway/sql/migrations  # database scripts - common to all environments
+      - ../db/scripts/local-migrations:/flyway/sql/local-migrations  # load data in the local environment
+      - ../db/config/flyway_local.conf:/flyway/conf/flyway.conf
+    depends_on:
+      - db
+    # Make sure database container is available
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://db:5432"]
+      interval: 1s
+      timeout: 20s
+      retries: 10
+
+  # Acts as proxy server to emulate/support AWS Data API interactions with the database.
+  # If AWS Data API will not be used, this can be disabled and database accessed directly in
+  # connection strings.
+  local-data-api:
+    image: koxudaxi/local-data-api:0.6.12
+    restart: always
+    environment:
+      ENGINE: PostgreSQLJDBC
+      POSTGRES_HOST: db
+      # MYSQL_HOST: db
+      POSTGRES_PORT: 5432
+      # MYSQL_PORT: 3306
+      # Match what's defined in script init_database.sql
+      POSTGRES_USER: admin
+      # MYSQL_USER: admin
+      POSTGRES_PASSWORD: admin
+      # MYSQL_PASSWORD: admin
+      RESOURCE_ARN: 'arn:aws:rds:us-east-1:123456789012:cluster:dummy'
+      SECRET_ARN: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:dummy'
+    ports:
+      - "8080:80"
+
+  local-sqs:
+    image: softwaremill/elasticmq-native:1.6.5
+    ports:
+      - "9324:9324"
+      - "9325:9325"
