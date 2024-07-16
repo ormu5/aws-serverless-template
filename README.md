@@ -3,7 +3,7 @@
 Parameterized, granular stacks - based on the [Serverless Framework](https://serverless.com) - for doing various things on AWS
 [with Lambda], along with some opinions/tooling with respect to configuration patterns and local development.
 
-In the process of fleshing out this documentation....
+In the process of fleshing out this documentation and pulling additional stacks into this repo....
 
 # Principles
 
