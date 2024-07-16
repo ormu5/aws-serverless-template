@@ -1,7 +1,8 @@
 # Overview
 
-This Azure Event Hub reader is an implementation of [`EventHubConsumerClient`](https://learn.microsoft.com/en-us/javascript/api/@azure/event-hubs/eventhubconsumerclient?view=azure-node-latest)
-and underlying classes that facilitate automatic checkpointing (Postgres, in this case) and load balancing. See `lib/ts/v1/eventHubIngest.ts`.
+This Azure Event Hub reader / consumer is an implementation of [`EventHubConsumerClient`](https://learn.microsoft.com/en-us/javascript/api/@azure/event-hubs/eventhubconsumerclient?view=azure-node-latest),
+and underlying classes, executed by Lambda, that facilitate automatic checkpointing (Postgres, in this case)
+and load balancing. See `lib/ts/v1/eventHubIngest.ts` for somewhat-abstracted Event Hub ingest engine.
 
 All partitions of remote event hub will be read from and checkpointed in configured database. Events are read from
 the event hub and published to an SNS topic. A hydrated events receiver queue subscribes to that topic though
