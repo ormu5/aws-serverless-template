@@ -3,7 +3,7 @@
 This Azure Event Hub reader is an implementation of [`EventHubConsumerClient`](https://learn.microsoft.com/en-us/javascript/api/@azure/event-hubs/eventhubconsumerclient?view=azure-node-latest)
 and underlying classes that facilitate automatic checkpointing (Postgres, in this case) and load balancing. See `lib/ts/v1/eventHubIngest.ts`.
 
-All partitions of event hub will be read from and checkpointed in configured database. Events are read from
+All partitions of remote event hub will be read from and checkpointed in configured database. Events are read from
 the event hub and published to an SNS topic. A hydrated events receiver queue subscribes to that topic though
 currently its Lambda only logs the events and does not persist them.
 
@@ -26,6 +26,7 @@ currently its Lambda only logs the events and does not persist them.
 - Update hydrated event handler/dlq to do more than just log.
 - Update SNS message attribute mappings in lambda handlers (`EventPayload` and `parseMessageAttributesFromEvent`).
 - `/lib/ts/v1/eventHubIngest.ts` has a bit of hard-coded config in it for underlying `EventHubConsumerClient`.
+- Lambda currently configured to shut down 10s before timeout (which is currently set to 60s). This can be increased.
 
 ## MySQL
 
@@ -109,5 +110,11 @@ Example log output from Lambda working two Azure Event Hub partitions
 
 # TODO
 
-- Event hub manager Lambda for workers
-- Intelligent spin-down of workers (efficiency)
+- Event hub manager Lambda for workers; gist:
+  - A warning is currently generated/logged when message age exceeds a certain point.
+    This same warning could serve as a basis to send event to manager Lambda that then checks
+    to see how many Lambda instances are running (probably best based on checkpoint table). If
+    anything less than one Lambda per remote partition is running, the manager could spin up
+    another worker. If a single instance of a Lambda can keep up with all partitions, no warning is
+    is generated and the manager need not spin up more instances.
+- Intelligent spin-down of workers (efficiency) during sparse event hub messages.
