@@ -123,4 +123,7 @@ Example log output from Lambda working two Azure Event Hub partitions
   anything less than one Lambda per remote partition is running, the manager could spin up
   another worker. If a single instance of a Lambda can keep up with all partitions, no warning is
   is generated and the manager need not spin up more instances.
+
 - Intelligent spin-down of workers (efficiency) during sparse event hub messages.
+
+- Other note: two triggers: add worker and refresh worker
